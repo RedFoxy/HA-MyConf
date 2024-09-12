@@ -1,0 +1,360 @@
+# yaml-language-server: $schema=http://10.0.7.193:5000/api/config/schema.json
+mqtt:
+  host: 10.0.7.100
+  port: 1883
+  topic_prefix: frigate
+  client_id: frigate
+  user: '{FRIGATE_MQTT_USER}'
+  password: '{FRIGATE_MQTT_PASS}'
+  stats_interval: 60
+
+birdseye:
+  enabled: false
+  mode: motion
+
+ffmpeg:
+  global_args: -hide_banner -loglevel warning
+  hwaccel_args: preset-nvidia-h264
+  input_args: -avoid_negative_ts make_zero -fflags +genpts+discardcorrupt -rtsp_transport tcp
+
+  output_args:
+    detect: -f rawvideo -pix_fmt yuv420p
+    record: -f segment -segment_time 10 -segment_format mp4 -reset_timestamps 1 -strftime 1 -c copy -an
+
+detectors:
+  coral:
+    type: edgetpu
+    device: usb
+
+go2rtc:
+  rtsp:
+    listen: ':8554'
+  webrtc:
+    listen: ':8555'
+  streams:
+    cancello_cam:
+      - "ffmpeg:http://{FRIGATE_CANCELLO}/flv?port=1935&app=bcs&stream=channel0_main.bcs&user={FRIGATE_CAM_USER}&password={FRIGATE_CAM_PASS}#video=copy#audio=copy#audio=opus"
+    cancello_cam_sub:
+      - "ffmpeg:http://{FRIGATE_CANCELLO}/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user={FRIGATE_CAM_USER}&password={FRIGATE_CAM_PASS}"
+    cancello_salita_cam:
+      - "ffmpeg:rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@{FRIGATE_CANCELLO_SALITA}:554/11"
+    cancello_salita_cam_sub:
+      - "ffmpeg:rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@{FRIGATE_CANCELLO_SALITA}:554/02"
+    camera_mamma_cam:
+      - "rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@{FRIGATE_CAMERA_MAMMA}:554/h264Preview_01_main"
+      - "ffmpeg:camera_mamma_cam#audio=opus"
+    camera_mamma_cam_sub:
+      - "rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@{FRIGATE_CAMERA_MAMMA}:554/h264Preview_01_sub"
+      - "ffmpeg:camera_mamma_cam_sub#audio=opus"
+    camera_massimo_cam:
+      - "rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@{FRIGATE_CAMERA_MASSIMO}:554/h264Preview_01_main"
+      - "ffmpeg:camera_massimo_cam#audio=opus"
+    camera_massimo_cam_sub:
+      - "rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@{FRIGATE_CAMERA_MASSIMO}:554/h264Preview_01_sub"
+      - "ffmpeg:camera_massimo_cam_sub#audio=opus"
+    portico_cam:
+      - "ffmpeg:rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@{FRIGATE_PORTICO}:554/11"
+    portico_cam_sub:
+      - "ffmpeg:rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@{FRIGATE_PORTICO}:554/12"
+    posteggio_cam:
+      - "ffmpeg:rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@{FRIGATE_POSTEGGIO}:554/11"
+    posteggio_cam_sub:
+      - "ffmpeg:rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@{FRIGATE_POSTEGGIO}:554/12"
+    soggiorno_cam:
+      - "rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@{FRIGATE_SOGGIORNO}:554/h264Preview_01_main"
+      - "ffmpeg:soggiorno_cam#audio=opus"
+    soggiorno_cam_sub:
+      - "rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@{FRIGATE_SOGGIORNO}:554/h264Preview_01_sub"
+      - "ffmpeg:soggiorno_cam_sub#audio=opus"
+
+detect:
+  width: 640
+  height: 360
+  fps: 5
+  enabled: True
+  max_disappeared: 25
+
+objects:
+  track:
+    - person
+#    - cat
+#    - dog
+#    - bird
+#    - horse
+#    - bicycle
+#    - motorcycle
+#    - car
+#    - truck
+#    - clock
+#  filters:
+#    person:
+#      min_score: 0.5
+#      threshold: 0.7
+
+motion:
+  threshold: 25
+  contour_area: 100
+  delta_alpha: 0.2
+  frame_alpha: 0.2
+  frame_height: 180
+
+record:
+  enabled: true
+  retain:
+    days: 2
+    mode: all
+
+  events:
+    pre_capture: 15
+    post_capture: 15
+    objects:
+      - person
+    retain:
+      default: 15
+      mode: active_objects
+#      mode: motion
+
+snapshots:
+  enabled: True
+  timestamp: True
+  bounding_box: True
+  crop: False
+  required_zones: []
+  retain:
+    default: 1
+    objects:
+      person: 30
+      dog: 7
+
+timestamp_style:
+  position: tr
+  format: '%d/%m/%Y %H:%M:%S'
+  color:
+    red: 255
+    green: 255
+    blue: 255
+  thickness: 2
+  effect: shadow
+
+#------------------------------------------------------------------------------------------------
+cameras:
+#---------------------------------------------------- Soggiorno
+# Reolink
+  Soggiorno:
+    ffmpeg:
+      output_args:
+        record: preset-record-generic-audio-copy
+      inputs:
+        - path: rtsp://127.0.0.1:8554/soggiorno_cam
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/soggiorno_cam_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+    onvif:
+      host: 192.168.1.31
+      port: 8000
+      user: '{FRIGATE_CAM_USER}'
+      password: '{FRIGATE_CAM_PASS}'
+    motion:
+      mask:
+        - 438,15,440,29,624,29,622,14
+
+#---------------------------------------------------- Massimo
+# Reolink
+  Massimo:
+    ffmpeg:
+      output_args:
+        record: preset-record-generic-audio-copy
+      inputs:
+        - path: rtsp://127.0.0.1:8554/camera_massimo_cam
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/camera_massimo_cam_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+    onvif:
+      host: 192.168.1.34
+      port: 8000
+      user: '{FRIGATE_CAM_USER}'
+      password: '{FRIGATE_CAM_PASS}'
+    motion:
+      mask:
+        - 438,15,440,29,624,29,622,14
+
+#---------------------------------------------------- Mamma
+# Reolink
+  Mamma:
+    ffmpeg:
+      output_args:
+        record: preset-record-generic-audio-copy
+      inputs:
+        - path: rtsp://127.0.0.1:8554/camera_mamma_cam
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/camera_mamma_cam_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+    onvif:
+      host: 192.168.1.35
+      port: 8000
+      user: '{FRIGATE_CAM_USER}'
+      password: '{FRIGATE_CAM_PASS}'
+    motion:
+      mask:
+        - 448,0,444,26,640,22,640,0
+
+#---------------------------------------------------- Cancello
+# Reolink
+  Cancello:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/cancello_cam
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/cancello_cam_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+    motion:
+      mask:
+        0,0.329,0.386,0.123,0.953,0.063,0.959,0.191,0.948,0.459,0.905,0.776,0.85,0.997,0.999,0.999,0.999,-0.001,0,-0.001
+    objects:
+      track:
+        - person
+        - car
+        - truck
+        - bicycle
+        - motorcycle
+        - dog
+    detect:
+      width: 640
+      height: 480
+
+#---------------------------------------------------- Salita Cancello
+# Ctronics
+  Cancello_Salita:
+    ffmpeg:
+      output_args:
+        record: preset-record-generic-audio-copy
+      inputs:
+        - path: rtsp://127.0.0.1:8554/cancello_salita_cam
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/cancello_salita_cam_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+    onvif:
+      host: 192.168.1.55
+      port: 8080
+      user: '{FRIGATE_CAM_USER}'
+      password: '{FRIGATE_CAM_PASS}'
+    motion:
+      mask:
+        - 0.117,0.534,0.183,0.19,0.328,0.134,0.322,0,0,0,0,1,0.096,1,0.017,0.62
+        - 0.691,0.252,0.388,0.321,0.458,0.148,0.573,0.105,0.566,0,1,0,1,0.112
+      threshold: 40
+      contour_area: 40
+      improve_contrast: 'true'
+    objects:
+      track:
+        - person
+        - car
+        - truck
+        - bicycle
+        - motorcycle
+        - dog
+
+#---------------------------------------------------- Posteggio
+# Ctronics
+  Posteggio:
+    ffmpeg:
+      output_args:
+        record: preset-record-generic-audio-copy
+      inputs:
+        - path: rtsp://127.0.0.1:8554/posteggio_cam
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/posteggio_cam_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+    onvif:
+      host: 192.168.1.50
+      port: 8080
+      user: '{FRIGATE_CAM_USER}'
+      password: '{FRIGATE_CAM_PASS}'
+    motion:
+      threshold: 40
+      mask:
+        - 0.637,0,1,0,1,0.241
+        - 0.182,0.124,0.269,0.097,0.338,0,0,0,0,0.941
+      contour_area: 10
+      improve_contrast: 'true'
+    objects:
+      track:
+        - person
+      filters:
+        motion:
+          threshold: 60
+
+#---------------------------------------------------- Portico
+# Ctronics
+  Portico:
+    ffmpeg:
+      output_args:
+        record: preset-record-generic-audio-copy
+      inputs:
+        - path: rtsp://127.0.0.1:8554/portico_cam
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/portico_cam_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+    onvif:
+      host: 192.168.1.53
+      port: 8080
+      user: '{FRIGATE_CAM_USER}'
+      password: '{FRIGATE_CAM_PASS}'
+    motion:
+      mask:
+        - 0.734,0.06,1,0.062,1,0,0.738,0
+        - 0.165,0.995,0.202,0.568,0.249,0.214,0.275,0.218,0.357,0.126,0.325,0,0.001,-0.002,0.001,0.995
+      threshold: 30
+      contour_area: 10
+      improve_contrast: 'true'
+    objects:
+      track:
+        - person
+        - dog
+
+#-----------------------------------------------------------------
+version: 0.14
+camera_groups:
+  Esterno:
+    order: 1
+    icon: LuTruck
+    cameras:
+      - Cancello
+      - Cancello_Salita
+      - Posteggio
+      - Portico
+  Interno:
+    order: 2
+    icon: LuSofa
+    cameras:
+      - Soggiorno
+      - Massimo
+      - Mamma
