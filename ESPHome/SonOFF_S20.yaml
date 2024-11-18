@@ -1,1 +1,114 @@
+substitutions:
+  devicename:    SonOFF S20
+  devicename_id: sonoff_light
+  board_type:    sonoff_s20
+  static_ipaddr: 192.168.0.95
 
+esphome:
+  name: $devicename_id
+  friendly_name: $devicename
+  on_boot:
+    priority: -10
+    then:
+      - light.turn_off: light1
+
+esp8266:
+  board: $board_type
+
+logger:
+
+api:
+  encryption:
+    key: !secret api_encryption
+
+ota:
+- platform:     esphome
+  password:     !secret ota_password
+  id:           my_ota
+
+wifi:
+  networks:
+  - ssid:      !secret wifi_int_ssid
+    password:  !secret wifi_int_pass
+#  - ssid:      !secret wifi2_ssid
+#    password:  !secret wifi2_password
+
+#  manual_ip:
+#    static_ip: $static_ipaddr
+#    gateway:   !secret gateway
+#    subnet:    !secret subnet
+#    dns1:      !secret dns1
+
+  ap:
+    ssid:      $devicename Hotspot
+    password:  !secret ap_password
+
+captive_portal:
+
+web_server:
+  port: 80
+
+time:
+  - platform: sntp
+    timezone: !secret time_zone
+    servers:  !secret ntp_servers
+
+button:
+  - platform: restart
+    name: "$devicename Reboot"
+
+text_sensor:
+  - platform: version
+    name: $devicename ESPHome Version
+  - platform: wifi_info
+    ip_address:
+      name: $devicename IP
+    ssid:
+      name: $devicename SSID
+    bssid:
+      name: $devicename BSSID
+
+binary_sensor:
+  - platform: status
+    name: $devicename Status
+
+  - platform: gpio
+    pin:
+      number: GPIO0
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    name: $devicename Button
+    on_press:
+      - light.toggle: light1
+
+sensor:
+  - platform: uptime
+    type: seconds
+    name: $devicename Uptime
+
+  - platform: wifi_signal
+    name: $devicename WiFi Signal
+    update_interval: 60s
+
+output:
+#  - platform: esp8266_pwm
+#    id: led_green
+#    pin: GPIO13
+#    inverted: true
+
+  - platform: gpio
+    pin: GPIO12
+    id: relay1
+
+light:
+#  - platform: monochromatic
+#    name: "Vetrina Furry Green LED"
+#    output: led_green
+
+  - platform: binary
+    name: "Light socket"
+    icon: mdi:paw-outline
+    id: light1
+    output: relay1
